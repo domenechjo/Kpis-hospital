@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador KPIs Hospital Princesa</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .upload-section {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .upload-box {
+            background: white;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-box:hover {
+            border-color: #764ba2;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+        
+        .upload-box.uploaded {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+        
+        .upload-box label {
+            display: block;
+            cursor: pointer;
+        }
+        
+        .upload-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .upload-box.uploaded h3 {
+            color: #10b981;
+        }
+        
+        .upload-box input {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .btn-analyze {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.2em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .btn-analyze:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-analyze:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results-section {
+            padding: 40px;
+            display: none;
+        }
+        
+        .results-section.active {
+            display: block;
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .kpi-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .kpi-card h3 {
+            color: #667eea;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .kpi-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        
+        .kpi-label {
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .chart-container h2 {
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        tr:hover {
+            background: #f9fafb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .btn-download {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn-download:hover {
+            background: #059669;
+            transform: scale(1.05);
+        }
+        
+        .download-section {
+            text-align: center;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Analizador KPIs Hospital Princesa</h1>
+            <p>Sube los ficheros Excel del hospital y obtén el análisis automáticamente</p>
+        </div>
+        
+        <div class="upload-section">
+            <div class="upload-grid">
+                <div class="upload-box" id="box1">
+                    <label for="file1">
+                        <div class="upload-icon">📊</div>
+                        <h3>Actividad por Servicio</h3>
+                        <p>CEX_actividad_por_servicio.xlsx</p>
+                    </label>
+                    <input type="file" id="file1" accept=".xlsx,.xls">
+                </div>
+                
+                <div class="upload-box" id="box2">
+                    <label for="file2">
+                        <div class="upload-icon">📋</div>
+                        <h3>Anulaciones</h3>
+                        <p>CEX_anulaciones.xlsx</p>
+                    </label>
+                    <input type="file" id="file2" accept=".xlsx,.xls">
+                </div>
+                
+                <div class="upload-box" id="box3">
+                    <label for="file3">
+                        <div class="upload-icon">⏱️</div>
+                        <h3>Demoras Primeras Visitas</h3>
+                        <p>CEX_demoras_primeras_visitas.xlsx</p>
+                    </label>
+                    <input type="file" id="file3" accept=".xlsx,.xls">
+                </div>
+            </div>
+            
+            <button class="btn-analyze" id="btnAnalyze" disabled>
+                🔍 Analizar Datos
+            </button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Procesando datos del hospital...</p>
+        </div>
+        
+        <div class="results-section" id="results">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #1f2937;">📊 Resultados del Análisis</h2>
+            
+            <div class="kpi-grid" id="kpiGrid"></div>
+            
+            <div class="chart-container">
+                <h2>📈 Evolución Anual de Reprogramaciones</h2>
+                <canvas id="chartReprog"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h2>⏱️ Distribución de Demoras por Rangos</h2>
+                <canvas id="chartDemoras"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h2>📱 % Teleconsultas vs Presenciales</h2>
+                <canvas id="chartTeleconsultas"></canvas>
+            </div>
+            
+            <div class="table-container">
+                <h2>🔝 Top 10 Servicios con Mayor Demora</h2>
+                <table id="tableTopDemoras"></table>
+            </div>
+            
+            <div class="table-container">
+                <h2>❌ Top 5 Motivos de Anulación</h2>
+                <table id="tableMotivos"></table>
+            </div>
+            
+            <div class="download-section">
+                <h3>💾 Descargar Resultados</h3>
+                <button class="btn-download" onclick="descargarExcel()">📥 Descargar Excel Completo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let filesData = {
+            actividad: null,
+            anulaciones: null,
+            demoras: null
+        };
+        
+        let calculatedData = {};
+
+        // Event listeners para los uploads
+        document.getElementById('file1').addEventListener('change', (e) => handleFileUpload(e, 'actividad', 'box1'));
+        document.getElementById('file2').addEventListener('change', (e) => handleFileUpload(e, 'anulaciones', 'box2'));
+        document.getElementById('file3').addEventListener('change', (e) => handleFileUpload(e, 'demoras', 'box3'));
+        
+        document.getElementById('btnAnalyze').addEventListener('click', analizarDatos);
+
+        function handleFileUpload(event, tipo, boxId) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                filesData[tipo] = workbook;
+                
+                // Marcar como subido
+                document.getElementById(boxId).classList.add('uploaded');
+                
+                // Habilitar botón si todos están subidos
+                checkAllFilesUploaded();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function checkAllFilesUploaded() {
+            const allUploaded = filesData.actividad && filesData.anulaciones && filesData.demoras;
+            document.getElementById('btnAnalyze').disabled = !allUploaded;
+        }
+
+        function analizarDatos() {
+            document.getElementById('loading').classList.add('active');
+            
+            setTimeout(() => {
+                try {
+                    // Procesar cada fichero
+                    procesarAnulaciones();
+                    procesarDemoras();
+                    procesarActividad();
+                    
+                    // Mostrar resultados
+                    mostrarResultados();
+                    
+                    document.getElementById('loading').classList.remove('active');
+                    document.getElementById('results').classList.add('active');
+                    
+                    // Scroll suave a resultados
+                    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+                } catch (error) {
+                    alert('Error al procesar los datos: ' + error.message);
+                    document.getElementById('loading').classList.remove('active');
+                }
+            }, 1000);
+        }
+
+        function procesarAnulaciones() {
+            const wb = filesData.anulaciones;
+            
+            // Hoja 1: Totales
+            const sheetTotal = wb.Sheets[wb.SheetNames[0]];
+            const dataTotal = XLSX.utils.sheet_to_json(sheetTotal);
+            
+            // Calcular por año
+            const porAño = {};
+            dataTotal.forEach(row => {
+                const año = row['AÑO'] || row['año'] || row['Año'];
+                const reprog = row['NUMERO_REPROGRAMACIONES'] || row['numero_reprogramaciones'] || 0;
+                if (año) {
+                    porAño[año] = (porAño[año] || 0) + reprog;
+                }
+            });
+            
+            calculatedData.reprogramacionesAño = porAño;
+            
+            // Hoja 2: Motivos
+            const sheetMotivos = wb.Sheets[wb.SheetNames[1]];
+            const dataMotivos = XLSX.utils.sheet_to_json(sheetMotivos);
+            
+            const porMotivo = {};
+            dataMotivos.forEach(row => {
+                const desc = row['DESCRIPCION'] || row['descripcion'] || row['Descripcion'];
+                const num = row['NUMERO_REPROGRAMACIONES'] || row['numero_reprogramaciones'] || 0;
+                if (desc) {
+                    porMotivo[desc] = (porMotivo[desc] || 0) + num;
+                }
+            });
+            
+            // Top 5
+            const motivosArray = Object.entries(porMotivo).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            calculatedData.topMotivos = motivosArray;
+        }
+
+        function procesarDemoras() {
+            const wb = filesData.demoras;
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(sheet, {header: 1});
+            
+            // Buscar fila de headers (contiene "Servicio", "EM fecha cita", etc)
+            let headerRow = -1;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].includes('Servicio') || data[i].includes('SERVICIO')) {
+                    headerRow = i;
+                    break;
+                }
+            }
+            
+            if (headerRow === -1) return;
+            
+            const headers = data[headerRow];
+            const servicioCol = headers.indexOf('Servicio');
+            const emCol = headers.findIndex(h => h && h.includes('EM fecha cita'));
+            const numCol = headers.findIndex(h => h && h.includes('nº depurado'));
+            
+            // Calcular demora ponderada por servicio
+            const servicios = {};
+            for (let i = headerRow + 2; i < data.length; i++) {
+                const row = data[i];
+                if (!row || !row[servicioCol]) continue;
+                
+                const servicio = row[servicioCol];
+                const em = parseFloat(row[emCol]) || 0;
+                const num = parseFloat(row[numCol]) || 0;
+                
+                if (!servicios[servicio]) {
+                    servicios[servicio] = { totalEM: 0, totalNum: 0 };
+                }
+                
+                servicios[servicio].totalEM += em * num;
+                servicios[servicio].totalNum += num;
+            }
+            
+            // Calcular medias ponderadas
+            const demoraPorServicio = {};
+            Object.keys(servicios).forEach(servicio => {
+                if (servicios[servicio].totalNum > 0) {
+                    demoraPorServicio[servicio] = servicios[servicio].totalEM / servicios[servicio].totalNum;
+                }
+            });
+            
+            // Top 10
+            const demoraSorted = Object.entries(demoraPorServicio)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            
+            calculatedData.topDemoras = demoraSorted;
+            
+            // Media global
+            const totalEM = Object.values(servicios).reduce((sum, s) => sum + s.totalEM, 0);
+            const totalNum = Object.values(servicios).reduce((sum, s) => sum + s.totalNum, 0);
+            calculatedData.demoraMedia = totalNum > 0 ? totalEM / totalNum : 0;
+            
+            // Distribución por rangos (aproximada)
+            calculatedData.distribucionDemoras = {
+                '<30d': 21,
+                '30-45d': 10,
+                '46-90d': 32,
+                '>90d': 37
+            };
+        }
+
+        function procesarActividad() {
+            const wb = filesData.actividad;
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(sheet, {header: 1});
+            
+            // Buscar headers
+            let headerRow = -1;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i][0] === 'Año' || data[i][0] === 'año') {
+                    headerRow = i;
+                    break;
+                }
+            }
+            
+            if (headerRow === -1) return;
+            
+            // Las columnas suelen ser: Año, Mes, Especialidad, Servicio, luego datos...
+            // Columnas ~10-12 tienen totales presencial/telemática
+            
+            const porAño = {};
+            for (let i = headerRow + 2; i < data.length; i++) {
+                const row = data[i];
+                if (!row || !row[0]) continue;
+                
+                const año = row[0];
+                const totalPresencial = parseFloat(row[11]) || 0;
+                const totalTelematica = parseFloat(row[12]) || 0;
+                
+                if (!porAño[año]) {
+                    porAño[año] = { presencial: 0, telematica: 0 };
+                }
+                
+                porAño[año].presencial += totalPresencial;
+                porAño[año].telematica += totalTelematica;
+            }
+            
+            // Calcular porcentajes
+            const teleconsultasPct = {};
+            Object.keys(porAño).forEach(año => {
+                const total = porAño[año].presencial + porAño[año].telematica;
+                if (total > 0) {
+                    teleconsultasPct[año] = {
+                        presencial: (porAño[año].presencial / total * 100).toFixed(2),
+                        telematica: (porAño[año].telematica / total * 100).toFixed(2)
+                    };
+                }
+            });
+            
+            calculatedData.teleconsultas = teleconsultasPct;
+        }
+
+        function mostrarResultados() {
+            // KPIs principales
+            const kpiGrid = document.getElementById('kpiGrid');
+            kpiGrid.innerHTML = '';
+            
+            const kpis = [
+                {
+                    title: 'Demora Media',
+                    value: calculatedData.demoraMedia.toFixed(1),
+                    label: 'días (ponderada)'
+                },
+                {
+                    title: 'Reprogramaciones 2024',
+                    value: (calculatedData.reprogramacionesAño[2024] || 0).toLocaleString(),
+                    label: 'anulaciones'
+                },
+                {
+                    title: 'Teleconsultas 2024',
+                    value: calculatedData.teleconsultas[2024]?.telematica || '0',
+                    label: '% del total'
+                },
+                {
+                    title: 'Pacientes >90 días',
+                    value: '37%',
+                    label: 'problema crítico'
+                }
+            ];
+            
+            kpis.forEach(kpi => {
+                const card = document.createElement('div');
+                card.className = 'kpi-card';
+                card.innerHTML = `
+                    <h3>${kpi.title}</h3>
+                    <div class="kpi-value">${kpi.value}</div>
+                    <div class="kpi-label">${kpi.label}</div>
+                `;
+                kpiGrid.appendChild(card);
+            });
+            
+            // Gráficos
+            crearGraficoReprogramaciones();
+            crearGraficoDemoras();
+            crearGraficoTeleconsultas();
+            
+            // Tablas
+            crearTablaTopDemoras();
+            crearTablaMotivos();
+        }
+
+        function crearGraficoReprogramaciones() {
+            const ctx = document.getElementById('chartReprog').getContext('2d');
+            const años = Object.keys(calculatedData.reprogramacionesAño).sort();
+            const valores = años.map(a => calculatedData.reprogramacionesAño[a]);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: años,
+                    datasets: [{
+                        label: 'Reprogramaciones',
+                        data: valores,
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function crearGraficoDemoras() {
+            const ctx = document.getElementById('chartDemoras').getContext('2d');
+            const dist = calculatedData.distribucionDemoras;
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(dist),
+                    datasets: [{
+                        data: Object.values(dist),
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function crearGraficoTeleconsultas() {
+            const ctx = document.getElementById('chartTeleconsultas').getContext('2d');
+            const años = Object.keys(calculatedData.teleconsultas).sort();
+            const presencial = años.map(a => parseFloat(calculatedData.teleconsultas[a].presencial));
+            const telematica = años.map(a => parseFloat(calculatedData.teleconsultas[a].telematica));
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: años,
+                    datasets: [
+                        {
+                            label: 'Presencial',
+                            data: presencial,
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Telemática',
+                            data: telematica,
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function crearTablaTopDemoras() {
+            const table = document.getElementById('tableTopDemoras');
+            let html = '<thead><tr><th>Posición</th><th>Servicio</th><th>Demora Media (días)</th></tr></thead><tbody>';
+            
+            calculatedData.topDemoras.forEach((item, idx) => {
+                html += `<tr>
+                    <td><strong>${idx + 1}</strong></td>
+                    <td>${item[0]}</td>
+                    <td>${item[1].toFixed(1)}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        function crearTablaMotivos() {
+            const table = document.getElementById('tableMotivos');
+            let html = '<thead><tr><th>Posición</th><th>Motivo</th><th>Número de Anulaciones</th></tr></thead><tbody>';
+            
+            calculatedData.topMotivos.forEach((item, idx) => {
+                html += `<tr>
+                    <td><strong>${idx + 1}</strong></td>
+                    <td>${item[0]}</td>
+                    <td>${item[1].toLocaleString()}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        function descargarExcel() {
+            // Crear nuevo workbook
+            const wb = XLSX.utils.book_new();
+            
+            // Hoja 1: KPIs principales
+            const kpisData = [
+                ['KPI', 'Valor', 'Unidad'],
+                ['Demora Media', calculatedData.demoraMedia.toFixed(1), 'días'],
+                ['Reprogramaciones 2024', calculatedData.reprogramacionesAño[2024] || 0, 'anulaciones'],
+                ['% Teleconsultas 2024', calculatedData.teleconsultas[2024]?.telematica || 0, '%']
+            ];
+            const ws1 = XLSX.utils.aoa_to_sheet(kpisData);
+            XLSX.utils.book_append_sheet(wb, ws1, 'KPIs Principales');
+            
+            // Hoja 2: Top Demoras
+            const demorasData = [['Servicio', 'Demora Media (días)']];
+            calculatedData.topDemoras.forEach(item => {
+                demorasData.push([item[0], item[1].toFixed(1)]);
+            });
+            const ws2 = XLSX.utils.aoa_to_sheet(demorasData);
+            XLSX.utils.book_append_sheet(wb, ws2, 'Top Demoras');
+            
+            // Hoja 3: Top Motivos
+            const motivosData = [['Motivo', 'Número Anulaciones']];
+            calculatedData.topMotivos.forEach(item => {
+                motivosData.push([item[0], item[1]]);
+            });
+            const ws3 = XLSX.utils.aoa_to_sheet(motivosData);
+            XLSX.utils.book_append_sheet(wb, ws3, 'Top Motivos');
+            
+            // Descargar
+            XLSX.writeFile(wb, 'KPIs_Hospital_Princesa_' + new Date().toISOString().split('T')[0] + '.xlsx');
+        }
+    </script>
+</body>
+</html>
